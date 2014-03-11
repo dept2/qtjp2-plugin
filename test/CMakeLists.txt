@@ -1,0 +1,18 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/CMake)
+
+FIND_PACKAGE(Qt4 COMPONENTS QtCore QtGui QtTest REQUIRED)
+INCLUDE(${QT_USE_FILE})
+
+SET(sources
+  src/QtJP2OpenJPEGTest.cpp
+)
+
+SET(moc src/QtJP2OpenJPEGTest.h)
+
+QT4_WRAP_CPP(sources ${moc})
+
+SET(binary_target qtjp2test)
+ADD_EXECUTABLE(${binary_target} ${sources})
+TARGET_LINK_LIBRARIES(${binary_target} ${QT_LIBRARIES})
