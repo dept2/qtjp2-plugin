@@ -35,6 +35,10 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
   int spp;
   if (source.format() == QImage::Format_Indexed8)
     spp = source.isGrayscale() ? 1 : 3;
+#if QT_VERSION >= 0x050500
+  else if (source.format() == QImage::Format_Grayscale8)
+    spp = 1;
+#endif
   else if (source.format() == QImage::Format_Mono || source.format() == QImage::Format_MonoLSB)
     spp = 1;
   else
