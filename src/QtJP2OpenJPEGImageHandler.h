@@ -21,10 +21,12 @@ class QtJP2OpenJPEGImageHandler : public QImageIOHandler
     void setOption(ImageOption option, const QVariant& value);
     bool supportsOption(ImageOption option) const;
 
-    static OPJ_CODEC_FORMAT canRead(QIODevice* device);
+    static OPJ_CODEC_FORMAT codecFormat(QIODevice* device);
 
   private:
     int m_quality;
+
+    static opj_stream_t* createStream(QIODevice* device, bool isRead);
 };
 
 #endif // QTJP2OPENJPEGIMAGEHANDLER_H

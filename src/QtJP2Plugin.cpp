@@ -4,9 +4,6 @@
 #include "QtJP2Plugin.h"
 #include "QtJP2OpenJPEGImageHandler.h"
 
-// OpenJPEG
-#include <openjpeg.h>
-
 
 QtJP2Plugin::QtJP2Plugin(QObject* parent)
   : QImageIOPlugin(parent)
@@ -31,9 +28,8 @@ QImageIOPlugin::Capabilities QtJP2Plugin::capabilities(QIODevice* device, const 
     return 0;
 
   Capabilities caps;
-  if (device->isReadable() && (QtJP2OpenJPEGImageHandler::canRead(device) != CODEC_UNKNOWN))
+  if (device->isReadable() && (QtJP2OpenJPEGImageHandler::codecFormat(device) != OPJ_CODEC_UNKNOWN))
     caps |= CanRead;
-
   if (device->isWritable())
     caps |= CanWrite;
 
