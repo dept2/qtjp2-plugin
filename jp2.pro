@@ -1,6 +1,7 @@
 TARGET = qtjp2
 
 QT       += core gui
+CONFIG   += plugin
 TEMPLATE = lib
 
 PLUGIN_TYPE = imageformats
@@ -15,5 +16,5 @@ contains(QT_MAJOR_VERSION, 5) {
 unix|win32-g++*: LIBS += -lopenjpeg
 else:win32: LIBS += libopenjpeg.lib
 
-target.path = $$[QT_INSTALL_PREFIX]/plugins/imageformats
+target.path = $$[QT_INSTALL_PLUGINS]/imageformats
 INSTALLS += target
