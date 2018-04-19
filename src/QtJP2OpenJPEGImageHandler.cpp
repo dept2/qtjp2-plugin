@@ -1,6 +1,9 @@
 // Local
 #include "QtJP2OpenJPEGImageHandler.h"
 
+// STL
+#include <cmath>
+
 // Qt
 #include <QImage>
 #include <QVariant>
@@ -47,7 +50,7 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
     spp = 3;
 
   if (source.hasAlphaChannel())
-    qWarning() << "Alpha channels in images is unsupported by libopenjpeg. The alpha channel will be ignored.";
+    spp++;
 
   const int bps = 8;
 
@@ -62,11 +65,11 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
     cmptparm[i].sgnd = 0;
     cmptparm[i].dx = 1;
     cmptparm[i].dy = 1;
-    cmptparm[i].w = source.width();
-    cmptparm[i].h = source.height();
+    cmptparm[i].w = static_cast<OPJ_UINT32>(source.width());
+    cmptparm[i].h = static_cast<OPJ_UINT32>(source.height());
   }
 
-  opj_image_t* image = opj_image_create(spp, &cmptparm[0], spp == 1 ? OPJ_CLRSPC_GRAY : OPJ_CLRSPC_SRGB);
+  opj_image_t* image = opj_image_create(static_cast<OPJ_UINT32>(spp), &cmptparm[0], (spp > 2) ? OPJ_CLRSPC_SRGB : OPJ_CLRSPC_GRAY);
   if (!image)
   {
     qWarning() << "Can't create image object";
@@ -76,8 +79,8 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
   // Размеры изображения
   image->x0 = 0;
   image->y0 = 0;
-  image->x1 = source.width();
-  image->y1 = source.height();
+  image->x1 = static_cast<OPJ_UINT32>(source.width());
+  image->y1 = static_cast<OPJ_UINT32>(source.height());
 
   // Копирование данных
   for (int y = 0; y < source.height(); ++y)
@@ -96,6 +99,14 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
       {
         image->comps[0].data[y * source.width() + x] = qGray(pixel);
       }
+      else if (spp == 4)
+      {
+        image->comps[0].data[y * source.width() + x] = qRed(pixel);
+        image->comps[1].data[y * source.width() + x] = qGreen(pixel);
+        image->comps[2].data[y * source.width() + x] = qBlue(pixel);
+        image->comps[3].data[y * source.width() + x] = qAlpha(pixel);
+        image->comps[3].alpha = 1;
+      }
     }
   }
 
@@ -109,16 +120,20 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
 */
 QImage openjpegToQImage(opj_image_t* source)
 {
-  const int width = source->comps[0].w;
-  const int height = source->comps[0].h;
+  const int width = static_cast<int>(source->comps[0].w);
+  const int height = static_cast<int>(source->comps[0].h);
 
-  if (source->numcomps != 3 && source->numcomps != 1)
+  // TODO: Grayscale with alpha Channel should have source->numcomps == 2
+  // QImage doesn't have such format. Maybe we can convert it in ARGB32
+  if (source->numcomps != 4 && source->numcomps != 3 && source->numcomps != 1)
   {
-    qWarning() << "Unsupported components count\n";
+    qWarning() << QString("Unsupported components count: %1\n").arg(source->numcomps);
     return QImage();
   }
 
-  QImage::Format format = (source->numcomps == 3) ? QImage::Format_RGB32 : QImage::Format_Indexed8;
+  QImage::Format format = (source->numcomps == 3) ? QImage::Format_RGB32 :
+                          (source->numcomps == 4) ? QImage::Format_ARGB32 : QImage::Format_Indexed8;
+
   QImage image(width, height, format);
   if (format == QImage::Format_Indexed8)
   {
@@ -146,6 +161,13 @@ QImage openjpegToQImage(opj_image_t* source)
         pixel[1] = source->comps[1].data[y * width + x];
         pixel[0] = source->comps[2].data[y * width + x];
       }
+      else if (source->numcomps == 4)
+      {
+        pixel[3] = source->comps[3].data[y * width + x];
+        pixel[2] = source->comps[0].data[y * width + x];
+        pixel[1] = source->comps[1].data[y * width + x];
+        pixel[0] = source->comps[2].data[y * width + x];
+      }
     }
   }
 
@@ -162,11 +184,12 @@ void countCompressRates(double rateMin, double rateMax, double* compressRates)
 {
   double delta = (rateMax - rateMin) / 9.0;
 
-  compressRates[0] = rateMin;
-  compressRates[numCompressRates - 1] = rateMax;
+  // Sequence should be strictly descending
+  compressRates[0] = rateMax;
+  compressRates[numCompressRates - 1] = rateMin;
 
   for(int i = 1; i < numCompressRates - 1; ++i)
-    compressRates[i] = compressRates[0] + delta * i;
+    compressRates[i] = compressRates[0] - delta * i;
 }
 
 
@@ -187,91 +210,13 @@ int countNumResolutions(int size)
 }
 
 
-/*! Упаковать изображение в jpeg2000 - формат
-  \param[in] rawImage         - исходное изображение
-  \param[in] width             - ширина изображения
-  \param[in] height            - высота изображения
-  \param[in] samplesPerPixel - число компонент в цвете.
-  - 1 - for GRAY images
-  - 3 - for GRB images
-  \param[in] bitsPerSample   - битность компоненты цвета (8 или 16)
-  \param[in] compress_rate     - уровень сжатия.
-  - менее 1.0 - lossless compression
-  - более 1.0 - lossy compression
-  \param[in] comment           - комментарий (если NULL - "liba8jp2/OpenJPEG").
-  \param[out] jp2image    - упакованное afis_jp2 изображение
-  \param[out] jp2len      - размер afis_jp2 изображения
-  \note Generated JPEG200 is ANSI/NIST-ITL 1-2007 compliaced.
-  \note image - память необходимо освобождать снаружи с помощью liba8jp2_free()
-*/
-//QByteArray pack(const QImage& source, int quality, OPJ_CODEC_FORMAT format = OPJ_CODEC_JP2)
-//{
-//  double compressRate = 100. / double(quality);
-//  double compressRates[numCompressRates];
-//  countCompressRates(compressRate, compressRate * previewCompressRateMult, compressRates);
-
-//  opj_cparameters_t parameters;
-//  memset(&parameters, 0, sizeof(parameters));
-
-//  opj_set_default_encoder_parameters(&parameters);
-
-//  const char* cmt = "dept2/OpenJPEG";
-//  parameters.cp_comment = new char[strlen(cmt) + 1];
-//  strcpy(parameters.cp_comment, cmt);
-
-//  opj_image_t* image = qImageToOpenjpeg(source);
-//  opj_codec_t* cinfo = opj_create_compress(format);
-
-//  if (!image)
-//  {
-//    delete parameters.cp_comment;
-//    return QByteArray();
-//  }
-
-//  for (int i = 0; i < numCompressRates; ++i)
-//  {
-//    parameters.tcp_rates[i] = float(compressRates[i]);
-//    parameters.tcp_numlayers++;
-//    parameters.cp_disto_alloc = 1;
-//  }
-
-//  parameters.irreversible = (compressRate <= 1.0) ? 0 : 1;
-//  parameters.tcp_mct = static_cast<char>(image->numcomps == 3 ? 1 : 0);
-//  parameters.numresolution = countNumResolutions(std::max(source.width(), source.height()));
-//  parameters.prog_order = OPJ_RLCP;
-//  parameters.cblockh_init = parameters.cblockw_init = defaultBlockSize;
-
-//  opj_setup_encoder(cinfo, &parameters, image);
-//  opj_cio_t* cio = opj_cio_open((opj_common_ptr)cinfo, NULL, 0);
-//  if (!opj_encode(cinfo, cio, image, NULL))
-//  {
-//    qWarning("Can't encode image");
-//    delete parameters.cp_comment;
-//    opj_cio_close(cio);
-//    opj_destroy_codec(cinfo);
-//    opj_image_destroy(image);
-//    return QByteArray();
-//  }
-
-//  int codestream_length = cio_tell(cio);
-
-//  QByteArray result;
-//  result.append(reinterpret_cast<char*>(cio->buffer), codestream_length);
-
-//  opj_cio_close(cio);
-//  delete parameters.cp_comment;
-//  opj_destroy_codec(cinfo);
-//  opj_image_destroy(image);
-//  return result;
-//}
-
-
 namespace QtJP2
 {
   void message(const char* msg, void* client_data)
   {
     Q_UNUSED(msg);
     Q_UNUSED(client_data);
+    //qWarning() << msg;
   }
 
   OPJ_SIZE_T streamRead(void* buffer, OPJ_SIZE_T size, void* d)
@@ -291,8 +236,10 @@ namespace QtJP2
   OPJ_OFF_T streamSkip(OPJ_OFF_T size, void* d)
   {
     QIODevice* device = static_cast<QIODevice*>(d);
-    qint64 bytesRead = device->read(qint64(size)).size();
-    return OPJ_OFF_T(bytesRead > 0 ? bytesRead : -1);
+    if (device->seek(device->pos() + size))
+      return OPJ_OFF_T(size);
+    else
+      return OPJ_OFF_T(-1);
   }
 
   OPJ_BOOL streamSeek(OPJ_OFF_T pos, void* d)
@@ -354,16 +301,23 @@ bool QtJP2OpenJPEGImageHandler::read(QImage* image)
 
     if (opj_read_header(stream, codec, &opj_image))
     {
-      if (opj_decode(codec, stream, opj_image) && opj_end_decompress(codec, stream))
+      if (opj_decode(codec, stream, opj_image))
       {
-        *image = openjpegToQImage(opj_image);
-        ok = !(image->isNull());
-        if (!ok)
-          qWarning("Image not converted");
+        if (opj_end_decompress(codec, stream))
+        {
+          *image = openjpegToQImage(opj_image);
+          ok = !(image->isNull());
+          if (!ok)
+            qWarning("Image not converted");
+        }
+        else
+        {
+          qWarning("Error decompressing image");
+        }
       }
       else
       {
-        qWarning("Error decompressing image");
+        qWarning("Error decode image");
       }
     }
     else
@@ -384,19 +338,97 @@ bool QtJP2OpenJPEGImageHandler::read(QImage* image)
 }
 
 
-bool QtJP2OpenJPEGImageHandler::write(const QImage& /*image*/)
+bool QtJP2OpenJPEGImageHandler::write(const QImage& image)
 {
-//  if (!device())
+  QIODevice* d = device();
+  if (!d)
     return false;
 
-//  OPJ_CODEC_FORMAT codecFormat = OPJ_CODEC_JP2;
-//  if (format() == "j2k")
-//    codecFormat = OPJ_CODEC_J2K;
+  OPJ_CODEC_FORMAT codecFormat = OPJ_CODEC_UNKNOWN;
+  auto formatValue = format();
+  if (formatValue == "j2k")
+    codecFormat = OPJ_CODEC_J2K;
+  else if (formatValue == "jp2")
+    codecFormat = OPJ_CODEC_JP2;
+  else
+  {
+    qWarning("Unknown image format to encode");
+    return false;
+  }
 
-//  QByteArray imageArray = pack(image, m_quality, codecFormat);
-//  device()->write(imageArray);
+  opj_cparameters_t parameters;
+  opj_set_default_encoder_parameters(&parameters);
 
-//  return true;
+  opj_codec_t* codec = opj_create_compress(codecFormat);
+  opj_set_info_handler(codec, &QtJP2::message, NULL);
+  opj_set_warning_handler(codec, &QtJP2::message, NULL);
+  opj_set_error_handler(codec, &QtJP2::message, NULL);
+
+  //opj_setup_encoder
+  opj_image_t* opj_image = qImageToOpenjpeg(image);
+
+  // Quality
+  const int minQuality = 1;
+  const int maxQuality = 100;
+
+  if (m_quality == -1)
+    m_quality = 100;
+  if (m_quality <= minQuality)
+    m_quality = minQuality;
+  if (m_quality > maxQuality)
+    m_quality = maxQuality;
+
+  double compressRate = pow((double(100) / double(m_quality)), 2);
+
+  double compressRates[numCompressRates];
+  countCompressRates(compressRate, compressRate * previewCompressRateMult, compressRates);
+
+  for (int i = 0; i < numCompressRates; ++i)
+  {
+    parameters.tcp_rates[i] = float(compressRates[i]);
+    parameters.tcp_numlayers++;
+  }
+
+  parameters.cp_disto_alloc = 1;
+  parameters.irreversible = (compressRate <= 1.0) ? 0 : 1;
+  parameters.tcp_mct = static_cast<char>(opj_image->numcomps >= 3 ? 1 : 0);
+  parameters.numresolution = countNumResolutions(std::max(image.width(), image.height()));
+  parameters.prog_order = OPJ_RLCP;
+  parameters.cblockh_init = parameters.cblockw_init = defaultBlockSize;
+
+  if (opj_setup_encoder(codec, &parameters, opj_image))
+  {
+    opj_stream_t* stream = createStream(d, false);
+
+    if (!opj_start_compress(codec, opj_image, stream))
+    {
+      qWarning("Error start compress");
+      return false;
+    }
+
+    if (!opj_encode(codec, stream))
+    {
+      qWarning("Error encode image");
+      return false;
+    }
+
+    if (!opj_end_compress(codec, stream))
+    {
+      qWarning("Error compress image");
+      return false;
+    }
+
+    opj_stream_destroy(stream);
+  }
+  else
+  {
+    qWarning("Failed to setup encoder");
+    return false;
+  }
+
+  opj_destroy_codec(codec);
+  opj_image_destroy(opj_image);
+  return true;
 }
 
 
@@ -426,7 +458,10 @@ OPJ_CODEC_FORMAT QtJP2OpenJPEGImageHandler::codecFormat(QIODevice* device)
 
   QByteArray header = device->peek(12);
   if (header.size() != 12)
+  {
+    qWarning() << "Header is incorrect:" << header;
     return result;
+  }
 
   if (memcmp(header.constData(), jp2_rfc3745_magic, 12) == 0 || memcmp(header.constData(), jp2_magic, 4) == 0)
     result = OPJ_CODEC_JP2;
@@ -447,9 +482,11 @@ opj_stream_t* QtJP2OpenJPEGImageHandler::createStream(QIODevice* device, bool is
   opj_stream_set_user_data_length(stream, OPJ_UINT64(device->bytesAvailable()));
   opj_stream_set_read_function(stream, &QtJP2::streamRead);
   opj_stream_set_write_function(stream, &QtJP2::streamWrite);
-  opj_stream_set_skip_function(stream, &QtJP2::streamSkip);
   if (!device->isSequential())
+  {
+    opj_stream_set_skip_function(stream, &QtJP2::streamSkip);
     opj_stream_set_seek_function(stream, &QtJP2::streamSeek);
+  }
 
   return stream;
 }

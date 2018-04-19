@@ -5,7 +5,7 @@
 #include <QImageIOHandler>
 
 // OpenJPEG
-#include <openjpeg.h>
+#include <openjpeg-2.3/openjpeg.h>
 
 
 class QtJP2OpenJPEGImageHandler : public QImageIOHandler
@@ -16,7 +16,7 @@ class QtJP2OpenJPEGImageHandler : public QImageIOHandler
 
     bool canRead() const;
     bool read(QImage* image);
-    bool write(const QImage &image);
+    bool write(const QImage& image);
 
     void setOption(ImageOption option, const QVariant& value);
     bool supportsOption(ImageOption option) const;
