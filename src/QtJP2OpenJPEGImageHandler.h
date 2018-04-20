@@ -5,7 +5,7 @@
 #include <QImageIOHandler>
 
 // OpenJPEG
-#include <openjpeg-2.3/openjpeg.h>
+#include <openjpeg.h>
 
 
 class QtJP2OpenJPEGImageHandler : public QImageIOHandler
