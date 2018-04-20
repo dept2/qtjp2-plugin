@@ -1,0 +1,29 @@
+<RCC>
+    <qresource prefix="/">
+        <file>test_gray1.png</file>
+        <file>test_gray2.png</file>
+        <file>test_gray4.png</file>
+        <file>test_gray8.png</file>
+        <file>test_gray16.png</file>
+        <file>test_graya8.png</file>
+        <file>test_graya16.png</file>
+        <file>test_grey_alpha.png</file>
+        <file>test_lossless.j2k</file>
+        <file>test_pal8.png</file>
+        <file>test_rgba8.png</file>
+        <file>test_rgba16.png</file>
+        <file>test_rome.bmp</file>
+        <file>test1.jp2</file>
+        <file>test2.jp2</file>
+        <file>test_blackcat.jp2</file>
+        <file>test_blackcat.jpg</file>
+        <file>test_color8.png</file>
+        <file>test_color16.png</file>
+        <file>test_coloralpha.jp2</file>
+        <file>test_coloralpha.png</file>
+        <file>test_colorcat.jp2</file>
+        <file>test_colorcat.jpg</file>
+        <file>test_buxI.j2k</file>
+        <file>test_buxR.j2k</file>
+    </qresource>
+</RCC>
