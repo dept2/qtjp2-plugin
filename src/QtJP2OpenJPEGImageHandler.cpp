@@ -65,11 +65,11 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
     cmptparm[i].sgnd = 0;
     cmptparm[i].dx = 1;
     cmptparm[i].dy = 1;
-    cmptparm[i].w = static_cast<OPJ_UINT32>(source.width());
-    cmptparm[i].h = static_cast<OPJ_UINT32>(source.height());
+    cmptparm[i].w = OPJ_UINT32(source.width());
+    cmptparm[i].h = OPJ_UINT32(source.height());
   }
 
-  opj_image_t* image = opj_image_create(static_cast<OPJ_UINT32>(spp), &cmptparm[0], (spp > 2) ? OPJ_CLRSPC_SRGB : OPJ_CLRSPC_GRAY);
+  opj_image_t* image = opj_image_create(OPJ_UINT32(spp), &cmptparm[0], (spp > 2) ? OPJ_CLRSPC_SRGB : OPJ_CLRSPC_GRAY);
   if (!image)
   {
     qWarning() << "Can't create image object";
@@ -79,8 +79,8 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
   // Размеры изображения
   image->x0 = 0;
   image->y0 = 0;
-  image->x1 = static_cast<OPJ_UINT32>(source.width());
-  image->y1 = static_cast<OPJ_UINT32>(source.height());
+  image->x1 = OPJ_UINT32(source.width());
+  image->y1 = OPJ_UINT32(source.height());
 
   // Копирование данных
   for (int y = 0; y < source.height(); ++y)
