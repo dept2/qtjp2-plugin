@@ -1,6 +1,6 @@
 TARGET = qtjp2tests
 
-QT       += core gui testlib
+QT       += testlib
 
 HEADERS += src/QtJP2OpenJPEGTest.h
 SOURCES += src/QtJP2OpenJPEGTest.cpp
