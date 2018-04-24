@@ -458,10 +458,7 @@ OPJ_CODEC_FORMAT QtJP2OpenJPEGImageHandler::codecFormat(QIODevice* device)
 
   QByteArray header = device->peek(12);
   if (header.size() != 12)
-  {
-    qWarning() << "Header is incorrect:" << header;
     return result;
-  }
 
   if (memcmp(header.constData(), jp2_rfc3745_magic, 12) == 0 || memcmp(header.constData(), jp2_magic, 4) == 0)
     result = OPJ_CODEC_JP2;
