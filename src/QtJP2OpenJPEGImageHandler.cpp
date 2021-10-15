@@ -25,10 +25,8 @@ opj_image_t* qImageToOpenjpeg(const QImage& source)
   int spp;
   if (source.format() == QImage::Format_Indexed8)
     spp = source.isGrayscale() ? 1 : 3;
-#if QT_VERSION >= 0x050500
   else if (source.format() == QImage::Format_Grayscale8)
     spp = 1;
-#endif
   else if (source.format() == QImage::Format_Mono || source.format() == QImage::Format_MonoLSB)
     spp = 1;
   else
@@ -108,27 +106,21 @@ QImage openjpegToQImage(opj_image_t* source)
   const int width = static_cast<int>(source->comps[0].w);
   const int height = static_cast<int>(source->comps[0].h);
 
-  // TODO: Grayscale with alpha Channel should have source->numcomps == 2
-  // QImage doesn't have such format. Maybe we can convert it in ARGB32
-  if (source->numcomps != 4 && source->numcomps != 3 && source->numcomps != 1)
+  if (source->numcomps < 1 || source->numcomps > 4)
   {
     qWarning() << QString("Unsupported components count: %1\n").arg(source->numcomps);
     return QImage();
   }
 
-  QImage::Format format = (source->numcomps == 3) ? QImage::Format_RGB32 :
-                          (source->numcomps == 4) ? QImage::Format_ARGB32 : QImage::Format_Indexed8;
+  QImage::Format format;
+  if (source->numcomps == 1)
+    format = QImage::Format_Grayscale8;
+  else if (source->numcomps == 3)
+    format = QImage::Format_RGB32;
+  else
+    format = QImage::Format_ARGB32;
 
   QImage image(width, height, format);
-  if (format == QImage::Format_Indexed8)
-  {
-    // Заполнить палитру
-    QVector<QRgb> colors;
-    for (int i = 0; i <= 255; ++i)
-      colors << qRgb(i, i, i);
-
-    image.setColorTable(colors);
-  }
 
   for (int y = 0; y < height; ++y)
   {
@@ -139,6 +131,13 @@ QImage openjpegToQImage(opj_image_t* source)
       if (source->numcomps == 1)
       {
         *pixel = source->comps[0].data[y * width + x];
+      }
+      else if (source->numcomps == 2)
+      {
+        pixel[3] = source->comps[1].data[y * width + x];
+        pixel[2] = source->comps[0].data[y * width + x];
+        pixel[1] = source->comps[0].data[y * width + x];
+        pixel[0] = source->comps[0].data[y * width + x];
       }
       else if (source->numcomps == 3)
       {
