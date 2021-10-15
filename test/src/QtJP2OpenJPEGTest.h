@@ -13,13 +13,8 @@ class QtJP2OpenJPEGTest : public QObject
   Q_OBJECT
 
   private slots:
-    void jpgLossless();
-    void pngLossless();
-    void bmpLossless();
-    void pngAlphaLossless();
-    void pngGrayLossless();
-    void pngGrayAlphaLossless();
-    void pngGrayAlpha8();
+    void lossless_data();
+    void lossless();
 
     void grayJP();
     void testJK();

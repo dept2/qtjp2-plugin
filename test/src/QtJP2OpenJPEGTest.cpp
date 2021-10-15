@@ -8,226 +8,49 @@
 #include <QImage>
 
 
-void QtJP2OpenJPEGTest::bmpLossless()
+void QtJP2OpenJPEGTest::lossless_data()
 {
-  QImage originalImage(":/test_rome.bmp");
+  QTest::addColumn<QString>("file");
+  QTest::addColumn<QImage::Format>("outFormat");
+
+  QTest::newRow("large rgb (jpeg)") << ":/unsplash.jpg" << QImage::Format_RGB32;
+  QTest::newRow("argb (png)") << ":/test_coloralpha.png" << QImage::Format_ARGB32;
+  QTest::newRow("monochrome (png)") << ":/test_gray1.png" << QImage::Format_Grayscale8;
+  QTest::newRow("grayscale (png)") << ":/test_gray8.png" << QImage::Format_Grayscale8;
+  QTest::newRow("gray + alpha (png)") << ":/test_graya16.png" << QImage::Format_ARGB32;
+}
+
+
+void QtJP2OpenJPEGTest::lossless()
+{
+  QFETCH(QString, file);
+
+  QImage originalImage(file);
   QVERIFY(!originalImage.isNull());
 
   QByteArray convertedArray;
-  QBuffer buffer(&convertedArray);
-  buffer.open(QIODevice::WriteOnly);
-  QImage convertedImage;
   QBENCHMARK
   {
-    originalImage.save(&buffer, "jp2", 100);
+    convertedArray.clear();
+    QBuffer buffer(&convertedArray);
+    buffer.open(QIODevice::WriteOnly);
+    bool ok = originalImage.save(&buffer, "jp2", 100);
+    QVERIFY(ok);
+    buffer.close();
   }
 
-  buffer.close();
-
-  qWarning() << "Size" << convertedArray.size();
+  QImage convertedImage;
   convertedImage.loadFromData(convertedArray);
 
-  QCOMPARE(originalImage.size(), convertedImage.size());
-  for (int i = 0; i < originalImage.height(); ++i)
-    for (int j = 0; j < originalImage.width(); ++j)
-    {
-      QRgb original = originalImage.pixel(j, i);
-      QRgb converted = convertedImage.pixel(j, i);
-      QCOMPARE(qRed(original), qRed(converted));
-      QCOMPARE(qGreen(original), qGreen(converted));
-      QCOMPARE(qBlue(original), qBlue(converted));
-    }
-}
-
-
-void QtJP2OpenJPEGTest::jpgLossless()
-{
-  QImage originalImage(":/unsplash.jpg");
-  QVERIFY(!originalImage.isNull());
-
-  QByteArray convertedArray;
-  QBuffer buffer(&convertedArray);
-  buffer.open(QIODevice::WriteOnly);
-  QImage convertedImage;
-  QBENCHMARK
-  {
-    originalImage.save(&buffer, "jp2", 100);
-  }
-
-  buffer.close();
-
-  qWarning() << "Size" << convertedArray.size();
-  convertedImage.loadFromData(convertedArray);
+  QFETCH(QImage::Format, outFormat);
+  QCOMPARE(convertedImage.format(), outFormat);
 
   QCOMPARE(originalImage.size(), convertedImage.size());
   for (int i = 0; i < originalImage.height(); ++i)
     for (int j = 0; j < originalImage.width(); ++j)
-    {
-      QRgb original = originalImage.pixel(j, i);
-      QRgb converted = convertedImage.pixel(j, i);
-      QCOMPARE(qRed(original), qRed(converted));
-      QCOMPARE(qGreen(original), qGreen(converted));
-      QCOMPARE(qBlue(original), qBlue(converted));
-    }
+      QCOMPARE(originalImage.pixel(j, i), convertedImage.pixel(j, i));
 }
 
-
-void QtJP2OpenJPEGTest::pngLossless()
-{
-  QImage originalImage(":/test_color16.png");
-  QVERIFY(!originalImage.isNull());
-
-  QByteArray convertedArray;
-  QBuffer buffer(&convertedArray);
-  buffer.open(QIODevice::WriteOnly);
-  QImage convertedImage;
-  QBENCHMARK
-  {
-    originalImage.save(&buffer, "jp2", 100);
-
-
-    buffer.close();
-
-    qWarning() << "Size" << convertedArray.size() << buffer.size();
-    convertedImage.loadFromData(convertedArray);
-
-    QCOMPARE(originalImage.size(), convertedImage.size());
-    for (int i = 0; i < originalImage.height(); ++i)
-      for (int j = 0; j < originalImage.width(); ++j)
-      {
-        QRgb original = originalImage.pixel(j, i);
-        QRgb converted = convertedImage.pixel(j, i);
-        QCOMPARE(qRed(original), qRed(converted));
-        QCOMPARE(qGreen(original), qGreen(converted));
-        QCOMPARE(qBlue(original), qBlue(converted));
-      }
-  }
-}
-
-
-void QtJP2OpenJPEGTest::pngAlphaLossless()
-{
-  QImage originalImage(":/test_coloralpha.png");
-  QVERIFY(!originalImage.isNull());
-
-  QByteArray convertedArray;
-  QBuffer buffer(&convertedArray);
-  buffer.open(QIODevice::WriteOnly);
-  QImage convertedImage;
-  QBENCHMARK
-  {
-    originalImage.save(&buffer, "jp2", 100);
-  }
-
-  buffer.close();
-
-  qWarning() << "Size" << convertedArray.size();
-  convertedImage.loadFromData(convertedArray);
-
-  QCOMPARE(originalImage.size(), convertedImage.size());
-  for (int i = 0; i < originalImage.height(); ++i)
-    for (int j = 0; j < originalImage.width(); ++j)
-    {
-      QRgb original = originalImage.pixel(j, i);
-      QRgb converted = convertedImage.pixel(j, i);
-      QCOMPARE(qRed(original), qRed(converted));
-      QCOMPARE(qGreen(original), qGreen(converted));
-      QCOMPARE(qBlue(original), qBlue(converted));
-    }
-}
-
-
-void QtJP2OpenJPEGTest::pngGrayLossless()
-{
-  QImage originalImage(":/test_gray1.png");
-  QVERIFY(!originalImage.isNull());
-
-  QByteArray convertedArray;
-  QBuffer buffer(&convertedArray);
-  buffer.open(QIODevice::WriteOnly);
-  QImage convertedImage;
-  QBENCHMARK
-  {
-    originalImage.save(&buffer, "jp2", 100);
-
-
-    buffer.close();
-
-    qWarning() << "Size" << convertedArray.size();
-    convertedImage.loadFromData(convertedArray);
-
-    QCOMPARE(originalImage.size(), convertedImage.size());
-    for (int i = 0; i < originalImage.height(); ++i)
-      for (int j = 0; j < originalImage.width(); ++j)
-      {
-        QRgb original = originalImage.pixel(j, i);
-        QRgb converted = convertedImage.pixel(j, i);
-        QCOMPARE(qRed(original), qRed(converted));
-        QCOMPARE(qGreen(original), qGreen(converted));
-        QCOMPARE(qBlue(original), qBlue(converted));
-      }
-  }
-}
-
-
-void QtJP2OpenJPEGTest::pngGrayAlphaLossless()
-{
-  QImage originalImage(":/test_graya16.png");
-  QVERIFY(!originalImage.isNull());
-
-  QByteArray convertedArray;
-  QBuffer buffer(&convertedArray);
-  buffer.open(QIODevice::WriteOnly);
-  QImage convertedImage;
-  QBENCHMARK
-  {
-    originalImage.save(&buffer, "jp2", 100);
-
-
-    buffer.close();
-
-    qWarning() << "Size" << convertedArray.size();
-    convertedImage.loadFromData(convertedArray);
-
-    QCOMPARE(originalImage.size(), convertedImage.size());
-    for (int i = 0; i < originalImage.height(); ++i)
-      for (int j = 0; j < originalImage.width(); ++j)
-      {
-        QRgb original = originalImage.pixel(j, i);
-        QRgb converted = convertedImage.pixel(j, i);
-        QCOMPARE(qRed(original), qRed(converted));
-        QCOMPARE(qGreen(original), qGreen(converted));
-        QCOMPARE(qBlue(original), qBlue(converted));
-      }
-  }
-}
-
-
-void QtJP2OpenJPEGTest::pngGrayAlpha8()
-{
-  QImage originalImage(":/test_graya8.png");
-  QVERIFY(!originalImage.isNull());
-
-  QByteArray convertedArray;
-  QBuffer buffer(&convertedArray);
-  buffer.open(QIODevice::WriteOnly);
-  originalImage.save(&buffer, "jp2", 100);
-  buffer.close();
-
-  QImage convertedImage;
-  convertedImage.loadFromData(convertedArray, "jp2");
-
-  QCOMPARE(originalImage.size(), convertedImage.size());
-  for (int i = 0; i < originalImage.height(); ++i)
-    for (int j = 0; j < originalImage.width(); ++j)
-    {
-      QRgb original = originalImage.pixel(j, i);
-      QRgb converted = convertedImage.pixel(j, i);
-      QCOMPARE(qRed(original), qRed(converted));
-      QCOMPARE(qGreen(original), qGreen(converted));
-      QCOMPARE(qBlue(original), qBlue(converted));
-    }
-}
 
 void QtJP2OpenJPEGTest::grayJP()
 {
