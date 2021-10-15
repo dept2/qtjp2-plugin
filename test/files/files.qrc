@@ -25,5 +25,6 @@
         <file>test_colorcat.jpg</file>
         <file>test_buxI.j2k</file>
         <file>test_buxR.j2k</file>
+        <file>unsplash.jpg</file>
     </qresource>
 </RCC>

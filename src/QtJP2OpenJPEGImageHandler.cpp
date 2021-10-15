@@ -15,21 +15,6 @@ static const char* jp2_rfc3745_magic = "\x00\x00\x00\x0c\x6a\x50\x20\x20\x0d\x0a
 static const char* jp2_magic = "\x0d\x0a\x87\x0a";
 static const char* j2k_codestream_magic = "\xff\x4f\xff\x51";
 
-/*! Количество под-степеней сжатия, регламентируется ANSI/NIST*/
-static const int numCompressRates = 10;
-
-/*! Множитель для под-степеней сжатия, регламентируется ANSI/NIST*/
-static const int previewCompressRateMult = 10;
-
-/*!  Минимальное разрешение для подсчета количества разрешений, регламентируется ANSI/NIST */
-static const int minSize = 64;
-
-/*! Минимальное количество разрешений, регламентируется ANSI/NIST*/
-static const int minResolutions = 6;
-
-/*! Размер блока для сжатия*/
-static const int defaultBlockSize = 32;
-
 
 /*! Преобразование изображения из бинарного формата во внутренних формат библиотеки OpenJpeg.
   \param[in] source - исходное изображение
@@ -172,41 +157,6 @@ QImage openjpegToQImage(opj_image_t* source)
   }
 
   return image;
-}
-
-
-/*! count array of comress rates, accompliance to ANSI/NIST standard
-  \param[in] rateMin - минимальная степень сжатия
-  \param[in] rateMax - максимальная степень сжатия
-  \param[out] compressRates   - возвращает заполненный массив степеней сжатия
-*/
-void countCompressRates(double rateMin, double rateMax, double* compressRates)
-{
-  double delta = (rateMax - rateMin) / 9.0;
-
-  // Sequence should be strictly descending
-  compressRates[0] = rateMax;
-  compressRates[numCompressRates - 1] = rateMin;
-
-  for(int i = 1; i < numCompressRates - 1; ++i)
-    compressRates[i] = compressRates[0] - delta * i;
-}
-
-
-/*! count number of resolutions, accompliance to ANSI/NIST standard
-  \param[in] size      - размер изображения
-  \return количество необходимых разрешений
-*/
-int countNumResolutions(int size)
-{
-   int i = 1;
-   while (size > minSize)
-   {
-      ++i;
-      size /= 2;
-   }
-
-   return std::max(minResolutions, i);
 }
 
 
@@ -368,7 +318,7 @@ bool QtJP2OpenJPEGImageHandler::write(const QImage& image)
   opj_image_t* opj_image = qImageToOpenjpeg(image);
 
   // Quality
-  const int minQuality = 1;
+  const int minQuality = 0;
   const int maxQuality = 100;
 
   if (m_quality == -1)
@@ -378,23 +328,13 @@ bool QtJP2OpenJPEGImageHandler::write(const QImage& image)
   if (m_quality > maxQuality)
     m_quality = maxQuality;
 
-  double compressRate = pow((double(100) / double(m_quality)), 2);
-
-  double compressRates[numCompressRates];
-  countCompressRates(compressRate, compressRate * previewCompressRateMult, compressRates);
-
-  for (int i = 0; i < numCompressRates; ++i)
-  {
-    parameters.tcp_rates[i] = float(compressRates[i]);
-    parameters.tcp_numlayers++;
-  }
+  double compressRate = m_quality == 100 ? 1 : (maxQuality - m_quality);
+  parameters.tcp_rates[0] = compressRate;
+  parameters.tcp_numlayers = 1;
 
   parameters.cp_disto_alloc = 1;
-  parameters.irreversible = (compressRate <= 1.0) ? 0 : 1;
+  parameters.irreversible = m_quality != 100;
   parameters.tcp_mct = static_cast<char>(opj_image->numcomps >= 3 ? 1 : 0);
-  parameters.numresolution = countNumResolutions(std::max(image.width(), image.height()));
-  parameters.prog_order = OPJ_RLCP;
-  parameters.cblockh_init = parameters.cblockw_init = defaultBlockSize;
 
   if (opj_setup_encoder(codec, &parameters, opj_image))
   {

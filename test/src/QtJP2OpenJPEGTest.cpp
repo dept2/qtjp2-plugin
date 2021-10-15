@@ -40,6 +40,38 @@ void QtJP2OpenJPEGTest::bmpLossless()
 }
 
 
+void QtJP2OpenJPEGTest::jpgLossless()
+{
+  QImage originalImage(":/unsplash.jpg");
+  QVERIFY(!originalImage.isNull());
+
+  QByteArray convertedArray;
+  QBuffer buffer(&convertedArray);
+  buffer.open(QIODevice::WriteOnly);
+  QImage convertedImage;
+  QBENCHMARK
+  {
+    originalImage.save(&buffer, "jp2", 100);
+  }
+
+  buffer.close();
+
+  qWarning() << "Size" << convertedArray.size();
+  convertedImage.loadFromData(convertedArray);
+
+  QCOMPARE(originalImage.size(), convertedImage.size());
+  for (int i = 0; i < originalImage.height(); ++i)
+    for (int j = 0; j < originalImage.width(); ++j)
+    {
+      QRgb original = originalImage.pixel(j, i);
+      QRgb converted = convertedImage.pixel(j, i);
+      QCOMPARE(qRed(original), qRed(converted));
+      QCOMPARE(qGreen(original), qGreen(converted));
+      QCOMPARE(qBlue(original), qBlue(converted));
+    }
+}
+
+
 void QtJP2OpenJPEGTest::pngLossless()
 {
   QImage originalImage(":/test_color16.png");
